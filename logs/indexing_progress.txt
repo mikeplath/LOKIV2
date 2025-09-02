@@ -1,0 +1,4 @@
+Progress: 98% (13598/13763 files)
+Rate: 5266.27 files/hour
+Estimated: calculating...
+Last update: 2025-08-31 00:54:19

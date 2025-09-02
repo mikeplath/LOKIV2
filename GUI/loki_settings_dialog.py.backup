@@ -1,0 +1,335 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+import os
+import sys
+import tkinter as tk
+import customtkinter as ctk
+from tkinter import messagebox
+
+# Add parent directory to path so we can import modules
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
+# Import custom modules
+try:
+    from GUI.llm_instructions_dialog import LLMInstructionsDialog
+    from LLM.llm_settings import LLMSettings
+except ImportError as e:
+    print(f"Error importing modules: {str(e)}")
+
+class LokiSettingsDialog(ctk.CTkToplevel):
+    """Dialog for configuring LOKI settings."""
+    
+    def __init__(self, parent):
+        """Initialize the settings dialog."""
+        super().__init__(parent)
+        
+        # Set window properties
+        self.title("LOKI Settings")
+        self.geometry("600x450")
+        self.resizable(True, True)
+        
+        # Make dialog modal
+        self.transient(parent)
+        self.grab_set()
+        
+        # Load settings
+        self.llm_settings = LLMSettings()
+        self.result = None
+        
+        # Create UI elements
+        self.create_widgets()
+        
+        # Center on parent
+        self.center_on_parent()
+        
+        # Set initial values from settings
+        self.set_initial_values()
+        
+        # Wait for window to be closed
+        self.wait_window()
+    
+    def center_on_parent(self):
+        """Center the dialog on the parent window."""
+        parent = self.master
+        
+        # Calculate position
+        x = parent.winfo_rootx() + (parent.winfo_width() // 2) - (self.winfo_width() // 2)
+        y = parent.winfo_rooty() + (parent.winfo_height() // 2) - (self.winfo_height() // 2)
+        
+        # Set position
+        self.geometry(f"+{x}+{y}")
+    
+    def set_initial_values(self):
+        """Set initial values from settings."""
+        # Set context size
+        context_size = self.llm_settings.get_setting("context_size", 8192)
+        self.context_var.set(str(context_size))
+        
+        # Set temperature
+        temperature = self.llm_settings.get_setting("temperature", 0.7)
+        self.temp_slider.set(temperature)
+        self.update_temp_value(temperature)
+        
+        # Set top_p
+        top_p = self.llm_settings.get_setting("top_p", 0.9)
+        self.top_p_slider.set(top_p)
+        self.update_top_p_value(top_p)
+        
+        # Set repeat penalty
+        repeat_penalty = self.llm_settings.get_setting("repeat_penalty", 1.1)
+        self.repeat_slider.set(repeat_penalty)
+        self.update_repeat_value(repeat_penalty)
+    
+    def create_widgets(self):
+        """Create the UI elements."""
+        # Create main frame
+        main_frame = ctk.CTkFrame(self)
+        main_frame.pack(fill=tk.BOTH, expand=True, padx=20, pady=20)
+        
+        # Create title label
+        title_label = ctk.CTkLabel(main_frame, text="LOKI Settings", font=("TkDefaultFont", 16, "bold"))
+        title_label.pack(fill=tk.X, padx=10, pady=(0, 10))
+        
+        # Create notebook for tabs
+        self.notebook = ctk.CTkTabview(main_frame)
+        self.notebook.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+        
+        # Add tabs
+        self.notebook.add("LLM Settings")
+        self.notebook.add("Database")
+        self.notebook.add("Interface")
+        
+        # Select the first tab
+        self.notebook.set("LLM Settings")
+        
+        # Create LLM settings frame
+        llm_tab = self.notebook.tab("LLM Settings")
+        self.create_llm_settings_tab(llm_tab)
+        
+        # Create database settings frame
+        db_tab = self.notebook.tab("Database")
+        self.create_database_tab(db_tab)
+        
+        # Create interface settings frame
+        interface_tab = self.notebook.tab("Interface")
+        self.create_interface_tab(interface_tab)
+        
+        # Create buttons frame
+        buttons_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
+        buttons_frame.pack(fill=tk.X, padx=10, pady=10)
+        
+        # Create reset button
+        reset_button = ctk.CTkButton(buttons_frame, text="Reset to Default", command=self.reset_to_default)
+        reset_button.pack(side=tk.LEFT, padx=5)
+        
+        # Create spacer
+        spacer = ctk.CTkFrame(buttons_frame, fg_color="transparent")
+        spacer.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        
+        # Create cancel button
+        cancel_button = ctk.CTkButton(buttons_frame, text="Cancel", command=self.cancel)
+        cancel_button.pack(side=tk.LEFT, padx=5)
+        
+        # Create save button
+        save_button = ctk.CTkButton(buttons_frame, text="Save", command=self.save)
+        save_button.pack(side=tk.LEFT, padx=5)
+    
+    def create_llm_settings_tab(self, parent):
+        """Create the LLM settings tab."""
+        # Create settings frame
+        settings_frame = ctk.CTkFrame(parent)
+        settings_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+        
+        # Create grid
+        settings_frame.columnconfigure(0, weight=1)
+        settings_frame.columnconfigure(1, weight=2)
+        
+        # Add context size setting
+        context_label = ctk.CTkLabel(settings_frame, text="Context Size:")
+        context_label.grid(row=0, column=0, padx=10, pady=10, sticky="w")
+        
+        context_values = ["2048", "4096", "8192", "16384", "32768"]
+        self.context_var = ctk.StringVar(value="8192")
+        context_dropdown = ctk.CTkOptionMenu(settings_frame, values=context_values, variable=self.context_var)
+        context_dropdown.grid(row=0, column=1, padx=10, pady=10, sticky="ew")
+        
+        # Add tooltip for context size
+        context_tooltip = ctk.CTkLabel(settings_frame, text="Higher values allow the LLM to consider more text but use more memory.", 
+                                      font=("TkDefaultFont", 10), text_color="gray")
+        context_tooltip.grid(row=1, column=0, columnspan=2, padx=10, pady=(0, 10), sticky="w")
+        
+        # Add temperature setting
+        temp_label = ctk.CTkLabel(settings_frame, text="Temperature:")
+        temp_label.grid(row=2, column=0, padx=10, pady=10, sticky="w")
+        
+        self.temp_slider = ctk.CTkSlider(settings_frame, from_=0.1, to=2.0, number_of_steps=19)
+        self.temp_slider.grid(row=2, column=1, padx=10, pady=10, sticky="ew")
+        
+        # Add temperature value label
+        self.temp_value = ctk.CTkLabel(settings_frame, text="0.7")
+        self.temp_value.grid(row=2, column=1, padx=(0, 10), pady=10, sticky="e")
+        
+        # Add callback for temperature slider
+        self.temp_slider.configure(command=self.update_temp_value)
+        
+        # Add tooltip for temperature
+        temp_tooltip = ctk.CTkLabel(settings_frame, text="Lower values (0.1-0.5) = more focused, higher values (0.8-1.5) = more creative.", 
+                                   font=("TkDefaultFont", 10), text_color="gray")
+        temp_tooltip.grid(row=3, column=0, columnspan=2, padx=10, pady=(0, 10), sticky="w")
+        
+        # Add top_p setting
+        top_p_label = ctk.CTkLabel(settings_frame, text="Top P:")
+        top_p_label.grid(row=4, column=0, padx=10, pady=10, sticky="w")
+        
+        self.top_p_slider = ctk.CTkSlider(settings_frame, from_=0.1, to=1.0, number_of_steps=9)
+        self.top_p_slider.grid(row=4, column=1, padx=10, pady=10, sticky="ew")
+        
+        # Add top_p value label
+        self.top_p_value = ctk.CTkLabel(settings_frame, text="0.9")
+        self.top_p_value.grid(row=4, column=1, padx=(0, 10), pady=10, sticky="e")
+        
+        # Add callback for top_p slider
+        self.top_p_slider.configure(command=self.update_top_p_value)
+        
+        # Add tooltip for top_p
+        top_p_tooltip = ctk.CTkLabel(settings_frame, text="Controls diversity. Lower values are more deterministic.", 
+                                    font=("TkDefaultFont", 10), text_color="gray")
+        top_p_tooltip.grid(row=5, column=0, columnspan=2, padx=10, pady=(0, 10), sticky="w")
+        
+        # Add repeat penalty setting
+        repeat_label = ctk.CTkLabel(settings_frame, text="Repeat Penalty:")
+        repeat_label.grid(row=6, column=0, padx=10, pady=10, sticky="w")
+        
+        self.repeat_slider = ctk.CTkSlider(settings_frame, from_=1.0, to=2.0, number_of_steps=10)
+        self.repeat_slider.grid(row=6, column=1, padx=10, pady=10, sticky="ew")
+        
+        # Add repeat penalty value label
+        self.repeat_value = ctk.CTkLabel(settings_frame, text="1.1")
+        self.repeat_value.grid(row=6, column=1, padx=(0, 10), pady=10, sticky="e")
+        
+        # Add callback for repeat penalty slider
+        self.repeat_slider.configure(command=self.update_repeat_value)
+        
+        # Add tooltip for repeat penalty
+        repeat_tooltip = ctk.CTkLabel(settings_frame, text="Higher values prevent repetition of the same phrases.", 
+                                     font=("TkDefaultFont", 10), text_color="gray")
+        repeat_tooltip.grid(row=7, column=0, columnspan=2, padx=10, pady=(0, 10), sticky="w")
+        
+        # Add instructions button
+        instructions_button = ctk.CTkButton(settings_frame, text="Edit LLM Instructions", 
+                                           command=self.open_instructions_editor)
+        instructions_button.grid(row=8, column=0, columnspan=2, padx=10, pady=10, sticky="ew")
+    
+    def create_database_tab(self, parent):
+        """Create the database settings tab."""
+        # Create settings frame
+        settings_frame = ctk.CTkFrame(parent)
+        settings_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+        
+        # Database settings will be implemented later
+        info_label = ctk.CTkLabel(settings_frame, text="Database settings will be available in a future update.", 
+                                 font=("TkDefaultFont", 12))
+        info_label.pack(fill=tk.BOTH, expand=True, padx=20, pady=20)
+    
+    def create_interface_tab(self, parent):
+        """Create the interface settings tab."""
+        # Create settings frame
+        settings_frame = ctk.CTkFrame(parent)
+        settings_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+        
+        # Interface settings will be implemented later
+        info_label = ctk.CTkLabel(settings_frame, text="Interface settings will be available in a future update.", 
+                                 font=("TkDefaultFont", 12))
+        info_label.pack(fill=tk.BOTH, expand=True, padx=20, pady=20)
+    
+    def update_temp_value(self, value):
+        """Update the temperature value label."""
+        self.temp_value.configure(text=f"{value:.1f}")
+    
+    def update_top_p_value(self, value):
+        """Update the top_p value label."""
+        self.top_p_value.configure(text=f"{value:.1f}")
+    
+    def update_repeat_value(self, value):
+        """Update the repeat penalty value label."""
+        self.repeat_value.configure(text=f"{value:.1f}")
+    
+    def open_instructions_editor(self):
+        """Open the LLM instructions editor."""
+        try:
+            # Open the dialog
+            dialog = LLMInstructionsDialog(self, self.llm_settings)
+            
+            # If the dialog was cancelled, do nothing
+            if not dialog.result:
+                return
+                
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to open instructions editor: {str(e)}")
+    
+    def reset_to_default(self):
+        """Reset settings to default."""
+        try:
+            # Reset settings
+            self.llm_settings.reset_settings()
+            
+            # Update UI
+            self.set_initial_values()
+            
+            messagebox.showinfo("Success", "Settings reset to default values.")
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to reset settings: {str(e)}")
+    
+    def save(self):
+        """Save the settings and close the dialog."""
+        try:
+            # Get context size
+            context_size = int(self.context_var.get())
+            
+            # Get temperature
+            temperature = self.temp_slider.get()
+            
+            # Get top_p
+            top_p = self.top_p_slider.get()
+            
+            # Get repeat penalty
+            repeat_penalty = self.repeat_slider.get()
+            
+            # Update settings
+            new_settings = {
+                "context_size": context_size,
+                "temperature": temperature,
+                "top_p": top_p,
+                "repeat_penalty": repeat_penalty
+            }
+            
+            # Save settings
+            self.llm_settings.update_settings(new_settings)
+            
+            # Store result
+            self.result = True
+            
+            # Close dialog
+            self.destroy()
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to save settings: {str(e)}")
+    
+    def cancel(self):
+        """Cancel and close the dialog."""
+        self.result = False
+        self.destroy()
+
+# For testing only
+if __name__ == "__main__":
+    root = ctk.CTk()
+    root.geometry("400x300")
+    
+    def open_dialog():
+        dialog = LokiSettingsDialog(root)
+        print(f"Dialog result: {dialog.result}")
+    
+    btn = ctk.CTkButton(root, text="Open Settings Dialog", command=open_dialog)
+    btn.pack(padx=20, pady=20)
+    
+    root.mainloop()
